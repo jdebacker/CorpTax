@@ -1,6 +1,7 @@
 # TODO: (0) check equations.  Also, can I replicate GM (2010)??(1) add costly equity, (2) add debt, (3) add more tax params - tax deprec rate, interest deduct, etc (as outline in OG-USA guide),
 # (4) think more about tables and figures, (5) update figures scripot (6) add tables script,
 # (7) write moments script to generate moments (maybe do before tables), (8) estimation script
+#(8) work on passing past solution of VFI so have good starting values
 
 '''
 ------------------------------------------------------------------------
@@ -23,6 +24,7 @@ This py-file creates the following other file(s):
 import scipy.optimize as opt
 import os
 import time
+import numpy as np
 
 import grids
 import VFI
@@ -70,6 +72,10 @@ psi = 1.08
 mu = 0
 rho = 0.7605
 sigma_eps = 0.213
+
+# financial frictions
+eta0 = 0.04  # fixed cost to issuing equity
+eta1 = 0.02  # linear cost to issuing equity
 
 # taxes
 tau_i = 0.25
@@ -132,27 +138,29 @@ K, sizek, kstar = grids.discrete_k(w0, firm_params, kgrid_params, z, sizez)
 Solve for general equilibrium
 ------------------------------------------------------------------------
 '''
-start_time = time.clock()
-results = opt.bisect(SS.GE_loop, 0.1, 2, args=(alpha_k, alpha_l, delta, psi,
-                                               betafirm, K, z, Pi, sizek,
-                                               sizez, h, tax_params),
-                     xtol=1e-4, full_output=True)
-print('SS results: ', results)
-w = results[0]
-GE_time = time.clock() - start_time
-print('Solving the GE model took ', GE_time, ' seconds to solve')
+VF_initial = np.zeros((sizez, sizek))  # initial guess at Value Function
+# initial guess at stationary distribution
+Gamma_initial = np.ones((sizez, sizek)) * (1 / (sizek * sizez))
 print('SS wage rate = ', w)
+gr_args = (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1,
+           sizek, sizez, h, tax_params, VF_initial, Gamma_initial)
+start_time = time.time()
+w = SS.golden_ratio_eqm(0.1, 2, gr_args, tolerance=1e-4)
+end_time = time.time()
+print('Solving the GE model took ', end_time - start_time, ' seconds to solve')
+print('SS wage rate: ', w)
+
 
 '''
 ------------------------------------------------------------------------
 Find model outputs given eq'm wage rate
 ------------------------------------------------------------------------
 '''
-op, e, l_d, y = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi,
-                                    sizez, sizek, tax_params)
-VF, PF, optK, optI = VFI.VFI(e, betafirm, delta, K, Pi, sizez, sizek,
-                             tax_params)
-Gamma = SS.find_SD(PF, Pi, sizez, sizek)
+op, e, l_d, y, eta = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi,
+                                         eta0, eta1, sizez, sizek, tax_params)
+VF, PF, optK, optI = VFI.VFI(e, eta, betafirm, delta, K, Pi,
+                             sizez, sizek, tax_params, VF_initial)
+Gamma = SS.find_SD(PF, Pi, sizez, sizek, Gamma_initial)
 print('Sum of Gamma = ', Gamma.sum())
 
 '''
