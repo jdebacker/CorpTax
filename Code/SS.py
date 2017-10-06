@@ -59,33 +59,6 @@ def find_SD(PF, Pi, sizez, sizek, Gamma_initial):
     return Gamma
 
 
-def GE_loop(w, *args):
-    global VF_initial, Gamma_initial
-    (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1, sizek,
-     sizez, h, tax_params, VF_initial, Gamma_initial) = args
-    # print('VF_initial = ', VF_initial[:4, 50:60])
-    op, e, l_d, y, eta = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l,
-                                             delta, psi, eta0, eta1,
-                                             sizez, sizek, tax_params)
-    VF, PF, optK, optI = VFI.VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek,
-                                 tax_params, VF_initial)
-    Gamma = find_SD(PF, Pi, sizez, sizek, Gamma_initial)
-    L_d = (Gamma * l_d).sum()
-    Y = (Gamma * y).sum()
-    I = (Gamma * optI).sum()
-    Psi = (Gamma * VFI.adj_costs(optK, K, delta, psi)).sum()
-    C = Y - I - Psi
-    L_s = get_L_s(w, C, h)
-    # print('Labor demand and supply = ', L_d, L_s)
-    MCdist = L_d - L_s
-    VF_initial = VF
-    Gamma_initial = Gamma
-    # print('VF_initial = ', VF_initial[:4, 50:60])
-
-
-    return MCdist
-
-
 def Market_Clearing(w, args):
     (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1, sizek,
      sizez, h, tax_params, VF_initial, Gamma_initial) = args
