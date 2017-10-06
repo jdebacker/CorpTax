@@ -164,10 +164,10 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
         # print('VF iteration: ', VFiter)
         VFiter += 1
 
-    if VFiter < VFmaxiter:
-        print('Value function converged after this many iterations:', VFiter)
-    else:
-        print('Value function did not converge')
+    # if VFiter < VFmaxiter:
+    #     print('Value function converged after this many iterations:', VFiter)
+    # else:
+    #     print('Value function did not converge')
 
     VF = V  # solution to the functional equation
 

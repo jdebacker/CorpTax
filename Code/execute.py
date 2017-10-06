@@ -138,21 +138,34 @@ K, sizek, kstar = grids.discrete_k(w0, firm_params, kgrid_params, z, sizez)
 Solve for general equilibrium
 ------------------------------------------------------------------------
 '''
-start_time = time.clock()
 VF_initial = np.zeros((sizez, sizek))  # initial guess at Value Function
 # initial guess at stationary distribution
 Gamma_initial = np.ones((sizez, sizek)) * (1 / (sizek * sizez))
+start_time = time.time()
 results = opt.bisect(SS.GE_loop, 0.1, 2, args=(alpha_k, alpha_l, delta, psi,
                                                betafirm, K, z, Pi, eta0,
                                                eta1, sizek, sizez, h,
                                                tax_params, VF_initial,
                                                Gamma_initial),
                      xtol=1e-4, full_output=True)
+end_time = time.time()
+print('Bisection time = ', end_time - start_time)
 print('SS results: ', results)
 w = results[0]
-GE_time = time.clock() - start_time
-print('Solving the GE model took ', GE_time, ' seconds to solve')
+# GE_time = time.clock() - start_time
+# print('Solving the GE model took ', GE_time, ' seconds to solve')
 print('SS wage rate = ', w)
+gr_args = (alpha_k, alpha_l, delta, psi,
+                                      betafirm, K, z, Pi, eta0, eta1,
+                                      sizek, sizez, h, tax_params,
+                                      VF_initial, Gamma_initial)
+start_time = time.time()
+w = SS.golden_ratio_eqm(0.1, 2, gr_args, tolerance=1e-4)
+end_time = time.time()
+print('Golden Rule time = ', end_time - start_time)
+print('SS wage rate: ', w)
+quit()
+
 
 '''
 ------------------------------------------------------------------------
