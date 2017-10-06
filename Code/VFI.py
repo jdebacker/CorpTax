@@ -16,7 +16,7 @@ import numpy as np
 
 
 @numba.jit
-def create_Vmat(EV, e, betafirm, Pi, sizez, sizek, Vmat, tax_params):
+def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params):
     '''
     ------------------------------------------------------------------------
     This function loops over the state and control variables, operating on the
@@ -50,8 +50,9 @@ def create_Vmat(EV, e, betafirm, Pi, sizez, sizek, Vmat, tax_params):
     for i in range(sizez):  # loop over z
         for j in range(sizek):  # loop over k
             for m in range(sizek):  # loop over k'
-                Vmat[i, j, m] = (((1 - tau_d) / (1 - tau_g)) * e[i, j, m]
-                                 + betafirm * EV[i, m])
+                Vmat[i, j, m] = (((1 - tau_d) / (1 - tau_g)) *
+                                 (e[i, j, m] - eta[i, j, m]) +
+                                 betafirm * EV[i, m])
 
     return Vmat
 
@@ -73,7 +74,8 @@ def adj_costs(kprime, k, delta, psi):
 
 
 @numba.jit
-def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, sizez, sizek, tax_params):
+def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, eta0, eta1,
+                    sizez, sizek, tax_params):
     '''
     -------------------------------------------------------------------------
     Generating possible cash flow levels
@@ -112,10 +114,12 @@ def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, sizez, sizek, tax_par
                                                            * K[j]) -
                               adj_costs(K[m], K[j], delta, psi))
 
-    return op, e, l_d, y
+    eta = (eta0 + eta1 * e) * (e < 0)
+
+    return op, e, l_d, y, eta
 
 
-def VFI(e, betafirm, delta, K, Pi, sizez, sizek, tax_params):
+def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
     '''
     ------------------------------------------------------------------------
     Value Function Iteration
@@ -142,14 +146,14 @@ def VFI(e, betafirm, delta, K, Pi, sizez, sizek, tax_params):
     VFtol = 1e-6
     VFdist = 7.0
     VFmaxiter = 3000
-    V = np.zeros((sizez, sizek))  # initial guess at value function
+    V = VF_initial
     Vmat = np.empty((sizez, sizek, sizek))  # initialize Vmat matrix
     Vstore = np.empty((sizez, sizek, VFmaxiter))  # initialize Vstore array
     VFiter = 1
     while VFdist > VFtol and VFiter < VFmaxiter:
         TV = V
         EV = np.dot(Pi, V)  # expected VF (expectation over z')
-        Vmat = create_Vmat(EV, e, betafirm, Pi, sizez, sizek, Vmat, tax_params)
+        Vmat = create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params)
 
         Vstore[:, :, VFiter] = V.reshape(sizez, sizek)  # store value function
         # at each iteration for graphing later

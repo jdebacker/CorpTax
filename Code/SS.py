@@ -16,7 +16,7 @@ import VFI
 
 
 @numba.jit
-def find_SD(PF, Pi, sizez, sizek):
+def find_SD(PF, Pi, sizez, sizek, Gamma_initial):
     '''
     ------------------------------------------------------------------------
     Compute the stationary distribution of firms over (k, z)
@@ -29,7 +29,7 @@ def find_SD(PF, Pi, sizez, sizek):
     HGamma    = operated on stationary distribution
     ------------------------------------------------------------------------
     '''
-    Gamma = np.ones((sizez, sizek)) * (1 / (sizek * sizez))
+    Gamma = Gamma_initial
     SDtol = 1e-12
     SDdist = 7
     SDiter = 0
@@ -60,14 +60,16 @@ def find_SD(PF, Pi, sizez, sizek):
 
 
 def GE_loop(w, *args):
-    (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, sizek, sizez, h,
-     tax_params) = args
-    op, e, l_d, y = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l,
-                                        delta, psi, sizez, sizek,
-                                        tax_params)
-    VF, PF, optK, optI = VFI.VFI(e, betafirm, delta, K, Pi, sizez, sizek,
-                                 tax_params)
-    Gamma = find_SD(PF, Pi, sizez, sizek)
+    global VF_initial, Gamma_initial
+    (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1, sizek,
+     sizez, h, tax_params, VF_initial, Gamma_initial) = args
+    # print('VF_initial = ', VF_initial[:4, 50:60])
+    op, e, l_d, y, eta = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l,
+                                             delta, psi, eta0, eta1,
+                                             sizez, sizek, tax_params)
+    VF, PF, optK, optI = VFI.VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek,
+                                 tax_params, VF_initial)
+    Gamma = find_SD(PF, Pi, sizez, sizek, Gamma_initial)
     L_d = (Gamma * l_d).sum()
     Y = (Gamma * y).sum()
     I = (Gamma * optI).sum()
@@ -76,6 +78,10 @@ def GE_loop(w, *args):
     L_s = get_L_s(w, C, h)
     print('Labor demand and supply = ', L_d, L_s)
     MCdist = L_d - L_s
+    VF_initial = VF
+    Gamma_initial = Gamma
+    # print('VF_initial = ', VF_initial[:4, 50:60])
+
 
     return MCdist
 
