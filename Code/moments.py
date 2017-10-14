@@ -21,14 +21,14 @@ def firm_moments(delta, k_params, z_params, output_vars, output_dir,
     # unpack tuples
     K, sizek, dens, kstar = k_params
     Pi, z, sizez = z_params
-    optK, optI, op, e, VF, PF, Gamma = output_vars
+    optK, optI, op, e, eta, VF, PF, Gamma = output_vars
 
     K_2d = np.tile(K.reshape(1, sizek), (sizez, 1))
     # Aggregate Investment Rate
     agg_IK = (optI * Gamma).sum() / (K_2d * Gamma).sum()
 
     # Aggregate Dividends/Earnings
-    equity, div = find_equity_div(e, PF, sizez, sizek)
+    equity, div = find_equity_div(e, eta, PF, sizez, sizek)
     agg_DE = (div * Gamma).sum() / (op * Gamma).sum()
 
     # Aggregate New Equity/Investment
@@ -65,7 +65,7 @@ def firm_moments(delta, k_params, z_params, output_vars, output_dir,
 
 
 @numba.jit
-def find_equity_div(e, PF, sizez, sizek):
+def find_equity_div(e, eta, PF, sizez, sizek):
     '''
     Determine equity issuance and dividend distributions
     '''

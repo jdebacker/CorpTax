@@ -45,11 +45,11 @@ def find_SD(PF, Pi, sizez, sizek, Gamma_initial):
         Gamma = HGamma
         SDiter += 1
 
-    # if SDiter < SDmaxiter:
-    #     # print('Stationary distribution converged after this many iterations: ',
-    #           SDiter)
-    # else:
-    #     print('Stationary distribution did not converge')
+    if SDiter < SDmaxiter:
+        print('Stationary distribution converged after this many iterations: ',
+              SDiter)
+    else:
+        print('Stationary distribution did not converge')
 
     # Check if state space is binding
     if Gamma.sum(axis=0)[-1] > 0.002:
