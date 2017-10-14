@@ -43,7 +43,7 @@ def discrete_z(rho, mu, sigma_eps, zgrid_params):
     return Pi, z
 
 
-def discrete_k(w, firm_params, kgrid_params, z, sizez):
+def discrete_k(w, firm_params, kgrid_params, zgrid, sizez):
     '''
     -------------------------------------------------------------------------
     Discretizing state space for capital
@@ -58,7 +58,7 @@ def discrete_k(w, firm_params, kgrid_params, z, sizez):
     krat   = scalar, difference between upper and lower bound in log points
     numb   = integer, the number of steps between the upper and lower bounds for
              the capital stock. The number of grid points is dens*numb.
-    K      = (sizek,) vector, grid points in the capital state space, from high
+    kgrid      = (sizek,) vector, grid points in the capital state space, from high
              to low
     kvec  = (sizek,) vector, capital grid points
     sizek = integer, the number of grid points in capital space
@@ -70,7 +70,7 @@ def discrete_k(w, firm_params, kgrid_params, z, sizez):
     # put in bounds here for the capital stock space
     kstar = ((((1 / betafirm - 1 + delta) * ((alpha_l / w) **
                                              (alpha_l / (alpha_l - 1)))) /
-             (alpha_k * (z[(sizez - 1) // 2] ** (1 / (1 - alpha_l))))) **
+             (alpha_k * (zgrid[(sizez - 1) // 2] ** (1 / (1 - alpha_l))))) **
              ((1 - alpha_l) / (alpha_k + alpha_l - 1)))
     kbar = 12  # kstar * 500
     ub_k = kbar
@@ -79,7 +79,23 @@ def discrete_k(w, firm_params, kgrid_params, z, sizez):
     kvec = np.empty(int(numb * dens))
     for j in range(int(numb * dens)):
         kvec[j] = ub_k * (1 - delta) ** (j / dens)
-    K = kvec[::-1]
-    sizek = K.shape[0]
+    kgrid = kvec[::-1]
+    sizek = kgrid.shape[0]
 
-    return K, sizek, kstar
+    return kgrid, sizek, kstar
+
+def discrete_b(lb_b, ub_b, sizeb):
+    '''
+    This function creates the grid space for corporate debt.
+
+    Args:
+        lb_b: scalar, lower bound of debt (can be negative)
+        ub_b: scalar, upper bound of debt
+        sizeb: interger, number of grid points for debt
+
+    Returns:
+        bgrid: vector with possible value of debt
+    '''
+    zgrid = np.linspace(lb_b, ub_b, num=sizeb)
+
+    return zgrid
