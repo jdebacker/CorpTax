@@ -50,9 +50,10 @@ def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params):
     for i in range(sizez):  # loop over z
         for j in range(sizek):  # loop over k
             for m in range(sizek):  # loop over k'
-                Vmat[i, j, m] = (((1 - tau_d) / (1 - tau_g)) *
-                                 (e[i, j, m] - eta[i, j, m]) +
-                                 betafirm * EV[i, m])
+                Vmat[i, j, m] = ((((1 - tau_d) / (1 - tau_g)) *
+                                 e[i, j, m]) * (e[i, j, m] >= 0) +
+                                 ((e[i, j, m] + eta[i, j, m]) *
+                                  (e[i, j, m] < 0)) + betafirm * EV[i, m])
 
     return Vmat
 
@@ -164,10 +165,10 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
         # print('VF iteration: ', VFiter)
         VFiter += 1
 
-    # if VFiter < VFmaxiter:
-    #     print('Value function converged after this many iterations:', VFiter)
-    # else:
-    #     print('Value function did not converge')
+    if VFiter < VFmaxiter:
+        print('Value function converged after this many iterations:', VFiter)
+    else:
+        print('Value function did not converge')
 
     VF = V  # solution to the functional equation
 
