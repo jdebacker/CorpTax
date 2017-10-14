@@ -1,7 +1,7 @@
 # TODO: (0) check equations.  Also, can I replicate GM (2010)??(1) add costly equity, (2) add debt, (3) add more tax params - tax deprec rate, interest deduct, etc (as outline in OG-USA guide),
 # (4) think more about tables and figures, (5) update figures scripot (6) add tables script,
 # (7) write moments script to generate moments (maybe do before tables), (8) estimation script
-#(8) work on passing past solution of VFI so have good starting values
+#(9) Try to solve for stationary distribution by finding eigenvector
 
 '''
 ------------------------------------------------------------------------
@@ -74,8 +74,24 @@ rho = 0.7605
 sigma_eps = 0.213
 
 # financial frictions
+# equity flotation costs
 eta0 = 0.04  # fixed cost to issuing equity
 eta1 = 0.02  # linear cost to issuing equity
+eta2 = 0.00  # quadratic costs to issuing equity
+# debt costs
+# fire sale price of capital
+s = 0.5
+# instead of cost of adjusting debt (as in Gamba and Triantis (2008)),
+# how about a cost of debt function that is a reduced form way to capture
+# endogenous default
+# this function will be increasing as leverage ratios increase and will
+# asymptote as infinity when it would be optimal to debt - i.e., debt
+# exceeds the expected present value of the firm, beta*EV(z,k,b)
+# questions: 1) should it increase at all if can cover debt costs in fire sale?
+# 2) EV is endgodenous to the cost of debt - so need additional fixed point
+# loop - as would with model with endogenous interest rates...
+# FOR NOW, NO COSTS
+
 
 # taxes
 tau_i = 0.25
@@ -89,8 +105,12 @@ sizez = 9
 num_sigma = 3  # number of std dev of profit shock to include in grid
 dens = 5
 lb_k = 0.001
+lb_b = -0.5
+ub_b = 0.5
+sizeb = 25
 zgrid_params = (num_sigma, sizez)
 kgrid_params = (dens, lb_k)
+bgrid_params = (lb_b, ub_b, sizeb)
 
 
 # Gourio and Miao (AEJ: Macro, 2010) calibration
@@ -128,22 +148,24 @@ betafirm = (1 / (1 + (r * ((1 - tau_i) / (1 - tau_g)))))
 
 firm_params = (betafirm, delta, alpha_k, alpha_l)
 
-# get the grids for K and z
-Pi, z = grids.discrete_z(rho, mu, sigma_eps, zgrid_params)
-K, sizek, kstar = grids.discrete_k(w0, firm_params, kgrid_params, z, sizez)
-
+# get the grids for z, k, and b
+Pi, zgrid = grids.discrete_z(rho, mu, sigma_eps, zgrid_params)
+kgrid, sizek, kstar = grids.discrete_k(w0, firm_params, kgrid_params,
+                                       zgrid, sizez)
+bgrid = grids.discrete_b(lb_b, ub_b, sizeb)
 
 '''
 ------------------------------------------------------------------------
 Solve for general equilibrium
 ------------------------------------------------------------------------
 '''
-VF_initial = np.zeros((sizez, sizek))  # initial guess at Value Function
+VF_initial = np.zeros((sizez, sizek, sizeb))  # initial guess at Value Function
 # initial guess at stationary distribution
-Gamma_initial = np.ones((sizez, sizek)) * (1 / (sizek * sizez))
-print('SS wage rate = ', w)
-gr_args = (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1,
-           sizek, sizez, h, tax_params, VF_initial, Gamma_initial)
+Gamma_initial = np.ones((sizez, sizek, sizeb)) * (1 / (sizek * sizez *
+                                                       sizeb))
+gr_args = (alpha_k, alpha_l, delta, psi, betafirm, kgrid, zgrid, bgrid,
+           Pi, eta0, eta1, s, sizek, sizez, sizeb, h, tax_params,
+           VF_initial, Gamma_initial)
 start_time = time.time()
 w = SS.golden_ratio_eqm(0.1, 2, gr_args, tolerance=1e-4)
 end_time = time.time()
@@ -156,10 +178,11 @@ print('SS wage rate: ', w)
 Find model outputs given eq'm wage rate
 ------------------------------------------------------------------------
 '''
-op, e, l_d, y, eta = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi,
-                                         eta0, eta1, sizez, sizek, tax_params)
-VF, PF, optK, optI = VFI.VFI(e, eta, betafirm, delta, K, Pi,
-                             sizez, sizek, tax_params, VF_initial)
+op, e, l_d, y, eta = VFI.get_firmobjects(w, zgrid, kgrid, alpha_k,
+                                         alpha_l, delta, psi, eta0,
+                                         eta1, sizez, sizek, tax_params)
+VF, PF, optK, optI = VFI.VFI(e, eta, betafirm, delta, kgrid, Pi,
+                                 sizez, sizek, tax_params, VF_initial)
 Gamma = SS.find_SD(PF, Pi, sizez, sizek, Gamma_initial)
 print('Sum of Gamma = ', Gamma.sum())
 
@@ -168,9 +191,9 @@ print('Sum of Gamma = ', Gamma.sum())
 Plot results
 ------------------------------------------------------------------------
 '''
-k_params = (K, sizek, dens, kstar)
-z_params = (Pi, z, sizez)
-output_vars = (optK, optI, op, e, VF, PF, Gamma)
+k_params = (kgrid, sizek, dens, kstar)
+z_params = (Pi, zgrid, sizez)
+output_vars = (optK, optI, op, e, eta, VF, PF, Gamma)
 plots.firm_plots(delta, k_params, z_params, output_vars, output_dir)
 
 '''
@@ -178,6 +201,6 @@ plots.firm_plots(delta, k_params, z_params, output_vars, output_dir)
 Print moments
 ------------------------------------------------------------------------
 '''
-agg_IK, agg_DE, agg_SI, sd_IK, ac_IK, sd_EK, ac_IK =\
+agg_Ikgrid, agg_DE, agg_SI, sd_IK, ac_IK, sd_EK, ac_IK =\
     moments.firm_moments(delta, k_params, z_params, output_vars,
                          output_dir, print_moments=True)

@@ -19,7 +19,7 @@ import VFI
 def find_SD(PF, Pi, sizez, sizek, Gamma_initial):
     '''
     ------------------------------------------------------------------------
-    Compute the stationary distribution of firms over (k, z)
+    Compute the stationary distribution of firms over (z, k)
     ------------------------------------------------------------------------
     SDtol     = tolerance required for convergence of SD
     SDdist    = distance between last two distributions
@@ -60,19 +60,19 @@ def find_SD(PF, Pi, sizez, sizek, Gamma_initial):
 
 
 def Market_Clearing(w, args):
-    (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1, sizek,
+    (alpha_k, alpha_l, delta, psi, betafirm, kgrid, zgrid, Pi, eta0, eta1, sizek,
      sizez, h, tax_params, VF_initial, Gamma_initial) = args
     # print('VF_initial = ', VF_initial[:4, 50:60])
-    op, e, l_d, y, eta = VFI.get_firmobjects(w, z, K, alpha_k, alpha_l,
+    op, e, l_d, y, eta = VFI.get_firmobjects(w, zgrid, kgrid, alpha_k, alpha_l,
                                              delta, psi, eta0, eta1,
                                              sizez, sizek, tax_params)
-    VF, PF, optK, optI = VFI.VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek,
+    VF, PF, optkgrid, optI = VFI.VFI(e, eta, betafirm, delta, kgrid, Pi, sizez, sizek,
                                  tax_params, VF_initial)
     Gamma = find_SD(PF, Pi, sizez, sizek, Gamma_initial)
     L_d = (Gamma * l_d).sum()
     Y = (Gamma * y).sum()
     I = (Gamma * optI).sum()
-    Psi = (Gamma * VFI.adj_costs(optK, K, delta, psi)).sum()
+    Psi = (Gamma * VFI.adj_costs(optkgrid, kgrid, delta, psi)).sum()
     C = Y - I - Psi
     L_s = get_L_s(w, C, h)
     # print('Labor demand and supply = ', L_d, L_s)
@@ -91,7 +91,7 @@ def golden_ratio_eqm(lb, ub, args, tolerance=1e-4):
     '''
     Use the golden section search method to find the GE
     '''
-    (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi, eta0, eta1, sizek,
+    (alpha_k, alpha_l, delta, psi, betafirm, kgrid, zgrid, Pi, eta0, eta1, sizek,
      sizez, h, tax_params, VF_initial, Gamma_initial) = args
     golden_ratio = 2 / (np.sqrt(5) + 1)
 
@@ -128,7 +128,7 @@ def golden_ratio_eqm(lb, ub, args, tolerance=1e-4):
             # Set the new lower test point
             x1 = ub - golden_ratio * (ub - lb)
             # print('New Lower Test Point = ', x1)
-            args = (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi,
+            args = (alpha_k, alpha_l, delta, psi, betafirm, kgrid, zgrid, Pi,
                     eta0, eta1, sizek, sizez, h, tax_params, VF1, Gamma1)
             f1, VF1, Gamma1 = Market_Clearing(x1, args)
         else:
@@ -151,7 +151,7 @@ def golden_ratio_eqm(lb, ub, args, tolerance=1e-4):
             # Set the new upper test point
             x2 = lb + golden_ratio * (ub - lb)
             # print('New Upper Test Point = ', x2)
-            args = (alpha_k, alpha_l, delta, psi, betafirm, K, z, Pi,
+            args = (alpha_k, alpha_l, delta, psi, betafirm, kgrid, zgrid, Pi,
                     eta0, eta1, sizek, sizez, h, tax_params, VF2, Gamma2)
             f2, VF2, Gamma2 = Market_Clearing(x2, args)
 

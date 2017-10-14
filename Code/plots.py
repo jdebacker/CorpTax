@@ -22,17 +22,17 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     '''
 
     # unpack tuples
-    K, sizek, dens, kstar = k_params
+    kgrid, sizek, dens, kstar = k_params
     Pi, z, sizez = z_params
     optK, optI, op, e, eta, VF, PF, Gamma = output_vars
 
     # Plot value function
     # plt.figure()
     fig, ax = plt.subplots()
-    ax.plot(K, VF[0, :], 'k--', label='z = ' + str(z[0]))
-    ax.plot(K, VF[(sizez - 1) // 2, :], 'k:', label='z = ' + str(z[(sizez - 1)
+    ax.plot(kgrid, VF[0, :], 'k--', label='z = ' + str(z[0]))
+    ax.plot(kgrid, VF[(sizez - 1) // 2, :], 'k:', label='z = ' + str(z[(sizez - 1)
                                                                       // 2]))
-    ax.plot(K, VF[-1, :], 'k', label='z = ' + str(z[-1]))
+    ax.plot(kgrid, VF[-1, :], 'k', label='z = ' + str(z[-1]))
     # Now add the legend with some customizations.
     legend = ax.legend(loc='lower right', shadow=True)
     # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
@@ -55,11 +55,11 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     # Plot optimal capital stock rule as a function of firm size
     # plt.figure()
     fig, ax = plt.subplots()
-    ax.plot(K, optK[0, :], 'k--', label='z = ' + str(z[0]))
-    ax.plot(K, optK[(sizez - 1) // 2, :], 'k:', label='z = ' + str(z[(sizez - 1)
+    ax.plot(kgrid, optK[0, :], 'k--', label='z = ' + str(z[0]))
+    ax.plot(kgrid, optK[(sizez - 1) // 2, :], 'k:', label='z = ' + str(z[(sizez - 1)
                                                                         // 2]))
-    ax.plot(K, optK[-1, :], 'k', label='z = ' + str(z[-1]))
-    ax.plot(K, K, 'k:', label='45 degree line')
+    ax.plot(kgrid, optK[-1, :], 'k', label='z = ' + str(z[-1]))
+    ax.plot(kgrid, kgrid, 'k:', label='45 degree line')
     # Now add the legend with some customizations.
     legend = ax.legend(loc='upper left', shadow=True)
     # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
@@ -74,7 +74,7 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     plt.ylabel('Optimal Choice of Capital Next Period')
     plt.title('Policy Function, Next Period Capital - stochastic firm w/ ' +
               'adjustment costs')
-    output_path = os.path.join(output_dir, 'Kprime_firm7')
+    output_path = os.path.join(output_dir, 'kgridprime_firm7')
     plt.savefig(output_path, dpi=200, bbox_inches="tight")
     # plt.show()
     plt.close()
@@ -83,10 +83,10 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     # Plot operating profits as a function of firm size
     # plt.figure()
     fig, ax = plt.subplots()
-    ax.plot(K, op[0, :], 'k--', label='z = ' + str(z[0]))
-    ax.plot(K, op[(sizez - 1) // 2, :], 'k:', label='z = ' + str(z[(sizez - 1)
+    ax.plot(kgrid, op[0, :], 'k--', label='z = ' + str(z[0]))
+    ax.plot(kgrid, op[(sizez - 1) // 2, :], 'k:', label='z = ' + str(z[(sizez - 1)
                                                                     // 2]))
-    ax.plot(K, op[-1, :], 'k', label='z = ' + str(z[-1]))
+    ax.plot(kgrid, op[-1, :], 'k', label='z = ' + str(z[-1]))
     # Now add the legend with some customizations.
     legend = ax.legend(loc='upper left', shadow=True)
     # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
@@ -109,8 +109,8 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     # Plot investment rule as a function of firm size
     # plt.figure()
     fig, ax = plt.subplots()
-    ax.plot(K, optI[(sizez - 1) // 2, :]/K, 'k--', label='Investment rate')
-    ax.plot(K, np.ones(sizek)*delta, 'k:', label='Depreciation rate')
+    ax.plot(kgrid, optI[(sizez - 1) // 2, :]/kgrid, 'k--', label='Investment rate')
+    ax.plot(kgrid, np.ones(sizek)*delta, 'k:', label='Depreciation rate')
     # Now add the legend with some customizations.
     legend = ax.legend(loc='upper left', shadow=True)
     # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
@@ -133,12 +133,12 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     # Plot investment rule as a function of productivity
     # plt.figure()
     fig, ax = plt.subplots()
-    ind = np.argmin(np.absolute(K - kstar))  # find where kstar is in grid
-    ax.plot(z, optI[:, ind - dens * 5] / K[ind - dens * 5], 'k', label='k = ' +
-            str(K[ind - dens * 5]))
-    ax.plot(z, optI[:, ind] / K[ind], 'k:', label='k = ' + str(K[ind]))
-    ax.plot(z, optI[:, ind + dens * 5] / K[ind + dens * 5], 'k--', label='k = '
-            + str(K[ind + dens * 5]))
+    ind = np.argmin(np.absolute(kgrid - kstar))  # find where kstar is in grid
+    ax.plot(z, optI[:, ind - dens * 5] / kgrid[ind - dens * 5], 'k', label='k = ' +
+            str(kgrid[ind - dens * 5]))
+    ax.plot(z, optI[:, ind] / kgrid[ind], 'k:', label='k = ' + str(kgrid[ind]))
+    ax.plot(z, optI[:, ind + dens * 5] / kgrid[ind + dens * 5], 'k--', label='k = '
+            + str(kgrid[ind + dens * 5]))
     # The frame is matplotlib.patches.Rectangle instance surrounding the legend.
     frame = legend.get_frame()
     frame.set_facecolor('0.90')
@@ -158,7 +158,7 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
 
     # Plot the stationary distribution
     fig, ax = plt.subplots()
-    ax.plot(K, Gamma.sum(axis=0))
+    ax.plot(kgrid, Gamma.sum(axis=0))
     plt.xlabel('Size of Capital Stock')
     plt.ylabel('Density')
     plt.title('Stationary Distribution over Capital')
@@ -179,7 +179,7 @@ def firm_plots(delta, k_params, z_params, output_vars, output_dir):
     plt.close()
 
     # Stationary distribution in 3D
-    zmat, kmat = np.meshgrid(K, np.log(z))
+    zmat, kmat = np.meshgrid(kgrid, np.log(z))
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     ax.plot_surface(kmat, zmat, Gamma, rstride=1, cstride=1, cmap=cm.coolwarm,

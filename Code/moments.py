@@ -19,13 +19,13 @@ def firm_moments(delta, k_params, z_params, output_vars, output_dir,
     '''
 
     # unpack tuples
-    K, sizek, dens, kstar = k_params
-    Pi, z, sizez = z_params
+    kgrid, sizek, dens, kstar = k_params
+    Pi, zgrid, sizez = z_params
     optK, optI, op, e, eta, VF, PF, Gamma = output_vars
 
-    K_2d = np.tile(K.reshape(1, sizek), (sizez, 1))
+    kgrid_2d = np.tile(kgrid.reshape(1, sizek), (sizez, 1))
     # Aggregate Investment Rate
-    agg_IK = (optI * Gamma).sum() / (K_2d * Gamma).sum()
+    agg_IK = (optI * Gamma).sum() / (kgrid_2d * Gamma).sum()
 
     # Aggregate Dividends/Earnings
     equity, div = find_equity_div(e, eta, PF, sizez, sizek)
@@ -40,16 +40,16 @@ def firm_moments(delta, k_params, z_params, output_vars, output_dir,
     # Volatility of the Investment Rate
     # this is determined as the standard deviation in the investment rate
     # across the steady state distribution of firms
-    mean_IK = ((optI / K_2d) * Gamma).sum() / Gamma.sum()
-    sd_IK = np.sqrt(((((optI / K_2d) - mean_IK) ** 2) * Gamma).sum())
+    mean_IK = ((optI / kgrid_2d) * Gamma).sum() / Gamma.sum()
+    sd_IK = np.sqrt(((((optI / kgrid_2d) - mean_IK) ** 2) * Gamma).sum())
 
     # Volatility of Earnings/Capital
-    mean_EK = ((op / K_2d) * Gamma).sum() / Gamma.sum()
-    sd_EK = np.sqrt(((((op / K_2d) - mean_EK) ** 2) * Gamma).sum())
+    mean_EK = ((op / kgrid_2d) * Gamma).sum() / Gamma.sum()
+    sd_EK = np.sqrt(((((op / kgrid_2d) - mean_EK) ** 2) * Gamma).sum())
 
     # Autocorrelation of the Investment Rate
     # Autocorrelation of Earnings/Capital
-    ac_IK, ac_EK = find_autocorr(op, optI, PF, Gamma, K, Pi, sizez,
+    ac_IK, ac_EK = find_autocorr(op, optI, PF, Gamma, kgrid, Pi, sizez,
                                  sizek, mean_IK, mean_EK, sd_IK, sd_EK)
 
     if print_moments:
@@ -80,7 +80,7 @@ def find_equity_div(e, eta, PF, sizez, sizek):
 
 
 @numba.jit
-def find_autocorr(op, optI, PF, Gamma, K, Pi, sizez, sizek, mean_IK,
+def find_autocorr(op, optI, PF, Gamma, kgrid, Pi, sizez, sizek, mean_IK,
                   mean_EK, sd_IK, sd_EK):
     '''
     Compute autocovariances for endogenous variables
@@ -90,15 +90,15 @@ def find_autocorr(op, optI, PF, Gamma, K, Pi, sizez, sizek, mean_IK,
     for i in range(sizez):  # loop over z
         for j in range(sizek):  # loop over k
             for m in range(sizez):  # loop over z'
-                cov_IK_IK = (cov_IK_IK + (((optI[i, j] / K[j]) -
+                cov_IK_IK = (cov_IK_IK + (((optI[i, j] / kgrid[j]) -
                                            mean_IK) *
                                           ((optI[m, PF[i, j]] /
-                                           K[PF[i, j]]) - mean_IK) *
+                                           kgrid[PF[i, j]]) - mean_IK) *
                                           Gamma[i, j] * Pi[i, m]))
-                cov_EK_EK = (cov_EK_EK + ((op[i, j] / K[j] -
+                cov_EK_EK = (cov_EK_EK + ((op[i, j] / kgrid[j] -
                                            mean_EK) *
                                           (op[m, PF[i, j]] /
-                                           K[PF[i, j]] - mean_EK) *
+                                           kgrid[PF[i, j]] - mean_EK) *
                                           Gamma[i, j] * Pi[i, m]))
 
     ac_IK = cov_IK_IK / (sd_IK ** 2)

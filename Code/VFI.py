@@ -75,7 +75,7 @@ def adj_costs(kprime, k, delta, psi):
 
 
 @numba.jit
-def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, eta0, eta1,
+def get_firmobjects(w, zgrid, kgrid, alpha_k, alpha_l, delta, psi, eta0, eta1,
                     sizez, sizek, tax_params):
     '''
     -------------------------------------------------------------------------
@@ -102,25 +102,25 @@ def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, eta0, eta1,
         for j in range(sizek):
             op[i, j] = ((1 - alpha_l) * ((alpha_l / w) **
                                          (alpha_l / (1 - alpha_l))) *
-                        ((z[i] * (K[j] ** alpha_k)) **
+                        ((zgrid[i] * (kgrid[j] ** alpha_k)) **
                          (1 / (1 - alpha_l))))
             l_d[i, j] = (((alpha_l / w) ** (1 / (1 - alpha_l))) *
-                         (z[i] ** (1 / (1 - alpha_l))) *
-                         (K[j] ** (alpha_k / (1 - alpha_l))))
-            y[i, j] = z[i] * (K[j] ** alpha_k) * (l_d[i, j] ** alpha_l)
+                         (zgrid[i] ** (1 / (1 - alpha_l))) *
+                         (kgrid[j] ** (alpha_k / (1 - alpha_l))))
+            y[i, j] = zgrid[i] * (kgrid[j] ** alpha_k) * (l_d[i, j] ** alpha_l)
             for m in range(sizek):
                 e[i, j, m] = ((1 - tau_c) * op[i, j] + (delta * tau_c
-                                                        * K[j]) - K[m]
+                                                        * kgrid[j]) - kgrid[m]
                                                         + ((1 - delta)
-                                                           * K[j]) -
-                              adj_costs(K[m], K[j], delta, psi))
+                                                           * kgrid[j]) -
+                              adj_costs(kgrid[m], kgrid[j], delta, psi))
 
-    eta = (eta0 + eta1 * e) * (e < 0)
+    eta = (-1 * eta0 + eta1 * e) * (e < 0)
 
     return op, e, l_d, y, eta
 
 
-def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
+def VFI(e, eta, betafirm, delta, kgrid, Pi, sizez, sizek, tax_params, VF_initial):
     '''
     ------------------------------------------------------------------------
     Value Function Iteration
@@ -154,7 +154,8 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
     while VFdist > VFtol and VFiter < VFmaxiter:
         TV = V
         EV = np.dot(Pi, V)  # expected VF (expectation over z')
-        Vmat = create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params)
+        Vmat = create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat,
+                           tax_params)
 
         Vstore[:, :, VFiter] = V.reshape(sizez, sizek)  # store value function
         # at each iteration for graphing later
@@ -176,11 +177,11 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
     ------------------------------------------------------------------------
     Find optimal capital and investment policy functions
     ------------------------------------------------------------------------
-    optK = (sizez, sizek) vector, optimal choice of k' for each (z, k)
+    optkgrid = (sizez, sizek) vector, optimal choice of k' for each (z, k)
     optI = (sizez, sizek) vector, optimal choice of investment for each (z, k)
     ------------------------------------------------------------------------
     '''
-    optK = K[PF]
-    optI = optK - (1 - delta) * K
+    optkgrid = kgrid[PF]
+    optI = optkgrid - (1 - delta) * kgrid
 
-    return VF, PF, optK, optI
+    return VF, PF, optkgrid, optI
