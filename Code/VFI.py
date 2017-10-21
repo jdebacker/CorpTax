@@ -13,10 +13,37 @@ problem via value function iteration.
 # imports
 import numba
 import numpy as np
+import time
 
 
 @numba.jit
-def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params):
+def create_EV(Pi, V, sizez, sizek, sizeb):
+    '''
+    Compute expectation of continuation value function.
+
+    Args:
+        Pi: 2D array, transition probabilities for exogenous state var
+        V: 3D array, value function
+
+    Returns:
+        EV: 3D array, expected value function (conditional on z)
+    '''
+    EV = np.zeros_like(V)
+    # start = time.time()
+    for i in range(sizez):  # loop over z
+        for jj in range(sizek):  # loop over k'
+            for mm in range(sizeb):  # loop over b'
+                for ii in range(sizez):  # loop over z'
+                    EV[i, jj, mm] = EV[i, jj, mm] + Pi[i, ii] * V[ii, jj, mm]
+    # end = time.time()
+    # print('EV loop takes ', end-start, ' seconds to complete.')
+
+    return EV
+
+
+
+@numba.jit
+def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, sizeb, tax_params):
     '''
     ------------------------------------------------------------------------
     This function loops over the state and control variables, operating on the
@@ -46,14 +73,21 @@ def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params):
     RETURNS: Vmat
     ------------------------------------------------------------------------
     '''
-    tau_i, tau_d, tau_g, tau_c = tax_params
+    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
+    # initialize Vmat array
+    # start = time.time()
+    Vmat = np.empty((sizez, sizek, sizek, sizeb, sizeb))
     for i in range(sizez):  # loop over z
         for j in range(sizek):  # loop over k
-            for m in range(sizek):  # loop over k'
-                Vmat[i, j, m] = ((((1 - tau_d) / (1 - tau_g)) *
-                                 e[i, j, m]) * (e[i, j, m] >= 0) +
-                                 ((e[i, j, m] + eta[i, j, m]) *
-                                  (e[i, j, m] < 0)) + betafirm * EV[i, m])
+            for jj in range(sizek):  # loop over k'
+                for m in range(sizeb):  # loop over b
+                    for mm in range(sizeb):  # loop over b'
+                        Vmat[i, j, jj, m, mm] = ((((1 - tau_d) / (1 - tau_g)) *
+                                 e[i, j, jj, m, mm]) * (e[i, j, jj, m, mm] >= 0) +
+                                 ((e[i, j, jj, m, mm] + eta[i, j, jj, m, mm]) *
+                                  (e[i, j, jj, m, mm] < 0)) + betafirm * EV[i, jj, mm])
+    # end = time.time()
+    # print('Vmat loop takes ', end-start, ' seconds to complete.')
 
     return Vmat
 
@@ -75,8 +109,8 @@ def adj_costs(kprime, k, delta, psi):
 
 
 @numba.jit
-def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, eta0, eta1,
-                    sizez, sizek, tax_params):
+def get_firmobjects(r, w, zgrid, kgrid, bgrid, alpha_k, alpha_l, delta, psi, eta0, eta1,
+                    eta2, s, sizez, sizek, sizeb, tax_params):
     '''
     -------------------------------------------------------------------------
     Generating possible cash flow levels
@@ -92,35 +126,59 @@ def get_firmobjects(w, z, K, alpha_k, alpha_l, delta, psi, eta0, eta1,
           today (state), and choice of capital stock tomorrow (control)
     -------------------------------------------------------------------------
     '''
-    tau_i, tau_d, tau_g, tau_c = tax_params
+    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     # Initialize arrays
     op = np.empty((sizez, sizek))
     l_d = np.empty((sizez, sizek))
     y = np.empty((sizez, sizek))
-    e = np.empty((sizez, sizek, sizek))
-    for i in range(sizez):
-        for j in range(sizek):
+    e = np.empty((sizez, sizek, sizek, sizeb, sizeb))
+    collateral_constraint = np.empty((sizez, sizek, sizek, sizeb, sizeb))
+    # start = time.time()
+    for i in range(sizez):  # loop over z
+        for j in range(sizek):  # loop over k
             op[i, j] = ((1 - alpha_l) * ((alpha_l / w) **
                                          (alpha_l / (1 - alpha_l))) *
-                        ((z[i] * (K[j] ** alpha_k)) **
+                        ((zgrid[i] * (kgrid[j] ** alpha_k)) **
                          (1 / (1 - alpha_l))))
             l_d[i, j] = (((alpha_l / w) ** (1 / (1 - alpha_l))) *
-                         (z[i] ** (1 / (1 - alpha_l))) *
-                         (K[j] ** (alpha_k / (1 - alpha_l))))
-            y[i, j] = z[i] * (K[j] ** alpha_k) * (l_d[i, j] ** alpha_l)
-            for m in range(sizek):
-                e[i, j, m] = ((1 - tau_c) * op[i, j] + (delta * tau_c
-                                                        * K[j]) - K[m]
-                                                        + ((1 - delta)
-                                                           * K[j]) -
-                              adj_costs(K[m], K[j], delta, psi))
+                         (zgrid[i] ** (1 / (1 - alpha_l))) *
+                         (kgrid[j] ** (alpha_k / (1 - alpha_l))))
+            y[i, j] = zgrid[i] * (kgrid[j] ** alpha_k) * (l_d[i, j] ** alpha_l)
+            for m in range(sizeb):  # loop over b
+                for jj in range(sizek):  # loop over k'
+                    for mm in range(sizeb):  # loop over b'
+                        e[i, j, jj, m, mm] =\
+                            (((1 - tau_c) * op[i, j]) +
+                             (delta * (1 - f_e) * tau_c * kgrid[j]) +
+                             (f_e * tau_c * (kgrid[jj] > ((1 - delta) *
+                                                          kgrid[j])) *
+                              (kgrid[jj] - ((1 - delta) * kgrid[j]))) -
+                             (kgrid[jj] - ((1 - delta) * kgrid[j])) -
+                             adj_costs(kgrid[jj], kgrid[j], delta, psi) +
+                             bgrid[mm] - ((1 + r) * bgrid[m]) +
+                             (r * tau_c * bgrid[m]) -
+                             (r * tau_c * (1 - f_b) * bgrid[m] *
+                              (bgrid[m] > 0)))
+                        # collateral_constraint[i, j, jj, m, mm] =\
+                        #     (((1-tau_c) * op[0, jj] + tau_c * delta *
+                        #       kgrid[jj] + s * kgrid[jj]) <=
+                        #      (((1 + r) * bgrid[mm]) - (r * tau_c * bgrid[mm])))
+                        collateral_constraint[i, j, jj, m, mm] =\
+                            (((1 + r) * bgrid[mm] - (tau_c * r * bgrid[mm])
+                              + (r * tau_c * (1 - f_b) * bgrid[mm] *
+                                 (bgrid[mm] > 0))) >
+                             (((1 - tau_c) * op[0, jj]) +
+                              ((1 - f_e) * tau_c * delta * kgrid[jj]) +
+                              s * kgrid[jj]))
+    eta = (-1 * eta0 + eta1 * e - eta2 * (e ** 2)) * (e < 0)
+    # end = time.time()
+    # print('Firm objects loop takes ', end-start, ' seconds to complete.')
 
-    eta = (eta0 + eta1 * e) * (e < 0)
-
-    return op, e, l_d, y, eta
+    return op, e, l_d, y, eta, collateral_constraint
 
 
-def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
+def VFI(e, eta, collateral_constraint, betafirm, delta, kgrid, bgrid, Pi, sizez, sizek, sizeb,
+        tax_params, VF_initial):
     '''
     ------------------------------------------------------------------------
     Value Function Iteration
@@ -143,23 +201,51 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
                 possible value of the state variables (k)
     ------------------------------------------------------------------------
     '''
-    tau_i, tau_d, tau_g, tau_c = tax_params
+    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     VFtol = 1e-6
     VFdist = 7.0
     VFmaxiter = 3000
     V = VF_initial
-    Vmat = np.empty((sizez, sizek, sizek))  # initialize Vmat matrix
-    Vstore = np.empty((sizez, sizek, VFmaxiter))  # initialize Vstore array
+    #Vstore = np.empty((sizez, sizek, sizeb, VFmaxiter))  # initialize Vstore array
     VFiter = 1
+    # while VFdist > VFtol and VFiter < VFmaxiter:
+    #     TV = V
+    #     EV = create_EV(Pi, V, sizez, sizek, sizeb)  # expected VF (expectation over z')
+    #     Vmat = create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, sizeb,
+    #                        tax_params) + (collateral_constraint * -1000000000)
+    #
+    #     #Vstore[:, :, :, VFiter] = V.reshape(sizez, sizek, sizeb)  # store value function
+    #     # at each iteration for graphing later
+    #     # apply max operator to Vmat (to get V(z,k,b))
+    #     V = (Vmat.max(axis=4)).max(axis=2)
+    #     PF_k = np.argmax(Vmat.max(axis=4), axis=2)
+    #     PF_b = np.argmax(Vmat.max(axis=2), axis=3)
+    #     VFdist = (np.absolute(V - TV)).max()  # check distance between value
+    #     # function for this iteration and value function from past iteration
+    #     # print('VF iteration: ', VFiter)
+    #     VFiter += 1
+
+    VFflag = 0
+    PF_k_old = np.zeros_like(V)
+    PF_b_old = np.zeros_like(V)
     while VFdist > VFtol and VFiter < VFmaxiter:
         TV = V
-        EV = np.dot(Pi, V)  # expected VF (expectation over z')
-        Vmat = create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, Vmat, tax_params)
+        EV = create_EV(Pi, V, sizez, sizek, sizeb)  # expected VF (expectation over z')
+        Vmat = create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, sizeb,
+                           tax_params) + (collateral_constraint * -1000000000)
 
-        Vstore[:, :, VFiter] = V.reshape(sizez, sizek)  # store value function
-        # at each iteration for graphing later
-        V = Vmat.max(axis=2)  # apply max operator to Vmat (to get V(k))
-        PF = np.argmax(Vmat, axis=2)
+        if VFiter%10 == 0:
+
+            V = (Vmat.max(axis=4)).max(axis=2)
+            PF_k = np.argmax(Vmat.max(axis=4), axis=2)
+            PF_b = np.argmax(Vmat.max(axis=2), axis=3)
+            if (np.absolute(PF_k-PF_k_old).max() == 0) & (np.absolute(PF_b-PF_b_old).max() == 0):
+                VFiter = VFmaxiter
+                VFflag = 1
+            else:
+                PF_k_old = PF_k
+                PF_b_old = PF_b
+        V = (Vmat.max(axis=4)).max(axis=2)
         VFdist = (np.absolute(V - TV)).max()  # check distance between value
         # function for this iteration and value function from past iteration
         # print('VF iteration: ', VFiter)
@@ -167,7 +253,7 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
 
     if VFiter < VFmaxiter:
         print('Value function converged after this many iterations:', VFiter)
-    else:
+    elif VFflag == 0:
         print('Value function did not converge')
 
     VF = V  # solution to the functional equation
@@ -180,7 +266,9 @@ def VFI(e, eta, betafirm, delta, K, Pi, sizez, sizek, tax_params, VF_initial):
     optI = (sizez, sizek) vector, optimal choice of investment for each (z, k)
     ------------------------------------------------------------------------
     '''
-    optK = K[PF]
-    optI = optK - (1 - delta) * K
+    optK = kgrid[PF_k]
+    k3grid = np.tile(np.reshape(kgrid, (1, sizek, 1)), (sizez, 1, sizeb))
+    optI = optK - (1 - delta) * k3grid
+    optB = bgrid[PF_b]
 
-    return VF, PF, optK, optI
+    return VF, PF_k, PF_b, optK, optI, optB
