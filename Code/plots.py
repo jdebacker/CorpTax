@@ -14,17 +14,19 @@ import os
 import numpy as np
 
 
-def firm_plots(delta, k_params, z_params, output_vars, output_dir):
+def firm_plots(delta, k_params, z_params, output_vars, output_path):
     '''
     ------------------------------------------------------------------------
     Plot Results
     ------------------------------------------------------------------------
     '''
 
+    output_dir = output_path + '/images'
+
     # unpack tuples
     kgrid, sizek, dens, kstar = k_params
     Pi, z, sizez = z_params
-    optK, optI, op, e, eta, VF, PF, Gamma = output_vars
+    optK, optI, optB, op, e, l_d, y, eta, VF, PF_k, PF_b, Gamma = output_vars
 
     # Plot value function
     # plt.figure()
