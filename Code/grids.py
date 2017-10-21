@@ -13,7 +13,7 @@ import numpy as np
 import ar1_approx as ar1
 
 
-def discrete_z(rho, mu, sigma_eps, zgrid_params):
+def discrete_z(rho, mu, sigma_eps, num_sigma, sizez):
     '''
     -------------------------------------------------------------------------
     Discretizing state space for productivity shocks
@@ -30,7 +30,6 @@ def discrete_z(rho, mu, sigma_eps, zgrid_params):
     '''
     # We will use the Rouwenhorst (1995) method to approximate a continuous
     # distribution of shocks to the AR1 process with a Markov process.
-    num_sigma, sizez = zgrid_params
     sigma_z = sigma_eps / ((1 - rho ** 2) ** (1 / 2))
     step = (num_sigma * sigma_z) / (sizez / 2)
     Pi, z = ar1.rouwen(rho, mu, step, sizez)
@@ -43,7 +42,7 @@ def discrete_z(rho, mu, sigma_eps, zgrid_params):
     return Pi, z
 
 
-def discrete_k(w, firm_params, kgrid_params, zgrid, sizez):
+def discrete_k(w, firm_params, zgrid, sizez, dens_k, lb_k):
     '''
     -------------------------------------------------------------------------
     Discretizing state space for capital
@@ -64,7 +63,6 @@ def discrete_k(w, firm_params, kgrid_params, zgrid, sizez):
     sizek = integer, the number of grid points in capital space
     -------------------------------------------------------------------------
     '''
-    dens, lb_k = kgrid_params
     betafirm, delta, alpha_k, alpha_l = firm_params
 
     # put in bounds here for the capital stock space
@@ -76,17 +74,22 @@ def discrete_k(w, firm_params, kgrid_params, zgrid, sizez):
     ub_k = kbar
     krat = np.log(lb_k / ub_k)
     numb = np.ceil(krat / np.log(1 - delta))
-    kvec = np.empty(int(numb * dens))
-    for j in range(int(numb * dens)):
-        kvec[j] = ub_k * (1 - delta) ** (j / dens)
+    kvec = np.empty(int(numb * dens_k))
+    for j in range(int(numb * dens_k)):
+        kvec[j] = ub_k * (1 - delta) ** (j / dens_k)
     kgrid = kvec[::-1]
     sizek = kgrid.shape[0]
+    # print('sizek = ', sizek)
+    # quit()
 
-    return kgrid, sizek, kstar
+    return kgrid, sizek, kstar, ub_k
 
-def discrete_b(lb_b, ub_b, sizeb):
+
+def discrete_b(lb_b, ub_b, sizeb, w, firm_params, zgrid, tau_c, theta, ub_k):
     '''
-    This function creates the grid space for corporate debt.
+    This function creates the grid space for corporate debt.  Idea is
+    to have a grid that includes zero, is denser around 0 and has more
+    points for positive debt levels.
 
     Args:
         lb_b: scalar, lower bound of debt (can be negative)
@@ -96,6 +99,36 @@ def discrete_b(lb_b, ub_b, sizeb):
     Returns:
         bgrid: vector with possible value of debt
     '''
-    zgrid = np.linspace(lb_b, ub_b, num=sizeb)
+    # bgrid = np.linspace(lb_b, ub_b, num=sizeb)
+    betafirm, delta, alpha_k, alpha_l = firm_params
+    ub_k = ub_k * 0.5
+    op = ((1 - alpha_l) * ((alpha_l / w) ** (alpha_l / (1 - alpha_l))) *
+          ((zgrid[0] * (ub_k ** alpha_k)) ** (1 / (1 - alpha_l))))
+    collateral = (1-tau_c) * op + tau_c * delta * ub_k + theta * ub_k
+    ub_b = collateral
+    # lb_b = 0.25 * ub_b
+    # num_pos_points = int(np.ceil(sizeb * 0.7))
+    # pos_b = np.log(np.logspace(0, ub_b, num=num_pos_points + 1, base=np.e))
+    # neg_b = np.log(np.logspace(0, lb_b, num=sizeb - num_pos_points, base=np.e))
+    # bgrid = np.append(-1 * neg_b[::-1][:-1], pos_b[:])
 
-    return zgrid
+    delta = 0.095 * 4
+    dens_b = 1
+    brat = np.log(0.001 / ub_b)
+    numb = np.ceil(brat / np.log(1 - delta))
+    # print('Numb=',numb)
+    bvec = np.empty(int(numb * dens_b))
+    for j in range(int(numb * dens_b)):
+        bvec[j] = ub_b * (1 - delta) ** (j / dens_b)
+    pos_b = bvec[::-1]
+    neg_b = -1 * pos_b/1.5
+    bgrid = np.append(np.append(neg_b[::-1], 0.0), pos_b[:])
+
+
+    # print('brgrid = ', bgrid)
+    # print('collateral = ', collateral)
+    # print('upper bound k = ', ub_k)
+    # print('Length of b = ', bgrid.shape)
+    # quit()
+
+    return bgrid
