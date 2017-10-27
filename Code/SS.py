@@ -72,6 +72,7 @@ def Market_Clearing(w, args):
      eta0, eta1, eta2, s, sizek, sizez, sizeb, h, tax_params, VF_initial,
      Gamma_initial) = args
     # print('VF_initial = ', VF_initial[:4, 50:60])
+    tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     op, e, l_d, y, eta, collateral_constraint = VFI.get_firmobjects(r, w, zgrid, kgrid, bgrid,
                                              alpha_k, alpha_l, delta,
                                              psi, eta0, eta1, eta2, s,
@@ -89,15 +90,15 @@ def Market_Clearing(w, args):
     # note that financial frictions not here- they aren't real costs,
     # rather they are costs paid by firms and recieved for financial
     # interemediaries and flow to households as income
-    L_s = get_L_s(w, C, h)
+    L_s = get_L_s(w, C, h, tau_l)
     # print('Labor demand and supply = ', L_d, L_s)
     MCdist = np.absolute(L_d - L_s)
 
     return MCdist, VF, Gamma
 
 
-def get_L_s(w, C, h):
-    L_s = w / (h * C)
+def get_L_s(w, C, h, tau_l):
+    L_s = ((1 - tau_l) * w) / (h * C)
 
     return L_s
 

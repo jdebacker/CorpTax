@@ -97,7 +97,7 @@ def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, 
     kgrid, sizek, dens, kstar = k_params
     Pi, zgrid, sizez = z_params
     bgrid, sizeb = b_params
-    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
+    tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     optK, optI, optB, op, e, l_d, y, eta, VF, PF_k, PF_b, Gamma = output_vars
 
     k3grid = np.tile(np.reshape(kgrid, (1, sizek, 1)), (sizez, 1, sizeb))
@@ -170,10 +170,11 @@ def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, 
     agg_L_d = (Gamma.sum(axis=2) * l_d).sum()
     agg_Psi = (Gamma * VFI.adj_costs(optK, k3grid, delta, psi)).sum()
     agg_C = agg_Y - agg_I - agg_Psi
-    agg_L_s = SS.get_L_s(w, agg_C, h)
+    agg_L_s = SS.get_L_s(w, agg_C, h, tau_l)
     mean_Q = (VF * Gamma).sum() / Gamma.sum()
     AvgQ = (VF * Gamma).sum() / (k3grid * Gamma).sum()
-    agg_IIT = ((tau_d * agg_D) + (tau_i * agg_L_s) - (tau_g * agg_S))
+    agg_IIT = ((tau_d * agg_D) + (tau_l * agg_L_s) + (tau_i * r * agg_B)
+               - (tau_g * agg_S))
     agg_CIT = tau_c * (agg_E - (r * f_b * agg_B) - ((1 - f_e) * delta
                                                     * agg_K) - f_e * agg_I)
     total_taxes = agg_CIT + agg_IIT
