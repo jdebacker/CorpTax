@@ -73,7 +73,7 @@ def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, sizeb, tax_params):
     RETURNS: Vmat
     ------------------------------------------------------------------------
     '''
-    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
+    tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     # initialize Vmat array
     # start = time.time()
     Vmat = np.empty((sizez, sizek, sizek, sizeb, sizeb))
@@ -126,7 +126,7 @@ def get_firmobjects(r, w, zgrid, kgrid, bgrid, alpha_k, alpha_l, delta, psi, eta
           today (state), and choice of capital stock tomorrow (control)
     -------------------------------------------------------------------------
     '''
-    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
+    tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     # Initialize arrays
     op = np.empty((sizez, sizek))
     l_d = np.empty((sizez, sizek))
@@ -201,7 +201,7 @@ def VFI(e, eta, collateral_constraint, betafirm, delta, kgrid, bgrid, Pi, sizez,
                 possible value of the state variables (k)
     ------------------------------------------------------------------------
     '''
-    tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
+    tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b = tax_params
     VFtol = 1e-6
     VFdist = 7.0
     VFmaxiter = 3000

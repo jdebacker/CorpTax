@@ -84,17 +84,38 @@ firm_params_baseline = {'alpha_k': 0.29715, 'alpha_l': 0.65, 'delta': 0.154,
 # 2) EV is endgodenous to the cost of debt - so need additional fixed point
 # loop - as would with model with endogenous interest rates...
 # FOR NOW, NO COSTS
-fin_frictions = {'eta0': 0.00, 'eta1': 0.02, 'eta2': 0.0, 'theta': 0.3}
+fin_frictions = {'eta0': 0.0, 'eta1': 0.02, 'eta2': 0.0, 'theta': 0.3}
 # fin_frictions = {'eta0': 0.0, 'eta1': 0.0, 'eta2': 0.0, 'theta': 0.5}
 
 
 # taxes
-tax_params = {'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.35,
+tax_params = {'tau_l': 0.25, 'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.35,
               'f_e': 0.0, 'f_b': 1.0}
-tax_params_CIT = {'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.25,
-                  'f_e': 0.0, 'f_b': 1.0}
-tax_params_CFT = {'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.25,
-                  'f_e': 1.0, 'f_b': 0.0}
+tax_params_elas = {'tau_l': 0.25, 'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.34,
+              'f_e': 0.0, 'f_b': 1.0}
+# tax_params_CIT = {'tau_l': 0.25, 'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.25,
+#                   'f_e': 0.0, 'f_b': 1.0}
+# tax_params_CFT = {'tau_l': 0.25, 'tau_i': 0.25, 'tau_d': 0.20, 'tau_g': 0.20, 'tau_c': 0.25,
+#                   'f_e': 1.0, 'f_b': 0.0}
+
+# with values from B-Tax/Tax-Calc
+# Interest income, taxable, mtr =  0.3466729052394317
+# wage income, mtr =  0.24972454804159058 0.3609129610839168
+# {'tau_nc': 0.3208582284636031, 'tau_div': 0.19136683768259502,
+#  'tau_int': 0.3466729052394317, 'tau_scg': 0.3200815758636131,
+#  'tau_lcg': 0.22529460597677733, 'tau_td': 0.24553735804206817, 'tau_h': 0.1712837798257659}
+# tax rates on interest, dividend, and capital gains income:  0.3466729052394317 0.19136683768259502 0.0202124374724
+# tax on cap gains w/o deferral:  0.12262889814384441
+# tax on cap gains w/o defferal and excluding death:  0.23137527951668754
+
+# tax_params = {'tau_l': 0.36, 'tau_i': 0.34, 'tau_d': 0.19, 'tau_g': 0.19, 'tau_c': 0.35,
+#               'f_e': 0.0, 'f_b': 1.0}
+# tax_params_elas = {'tau_l': 0.36, 'tau_i': 0.34, 'tau_d': 0.19, 'tau_g': 0.19, 'tau_c': 0.34,
+#               'f_e': 0.0, 'f_b': 1.0}
+# tax_params_CIT = {'tau_l': 0.36, 'tau_i': 0.34, 'tau_d': 0.19, 'tau_g': 0.19, 'tau_c': 0.25,
+#                   'f_e': 0.0, 'f_b': 1.0}
+# tax_params_CFT = {'tau_l': 0.36, 'tau_i': 0.34, 'tau_d': 0.19, 'tau_g': 0.19, 'tau_c': 0.25,
+#                   'f_e': 1.0, 'f_b': 0.0}
 
 '''
 Set state space parameters and then compute grids.  Then put grids in
@@ -111,11 +132,14 @@ w0 = 1.23  # initial guess at wage rate (or exogenous wage rate in PE model)
 solve_GE(w0, tax_params, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
          fin_frictions, grid_params, output_dir, guid='baseline',
          plot_results=False)
-solve_GE(w0, tax_params_CIT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
-         fin_frictions, grid_params, output_dir, guid='CIT',
-         plot_results=False)
-solve_GE(w0, tax_params_CFT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
-         fin_frictions, grid_params, output_dir, guid='CFT',
+# solve_GE(w0, tax_params_CIT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
+#          fin_frictions, grid_params, output_dir, guid='CIT',
+#          plot_results=False)
+# solve_GE(w0, tax_params_CFT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
+#          fin_frictions, grid_params, output_dir, guid='CFT',
+#          plot_results=False)
+solve_GE(w0, tax_params_elas, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
+         fin_frictions, grid_params, output_dir, guid='elas',
          plot_results=False)
 
 #solve PE
@@ -123,8 +147,10 @@ start = time.time()
 solve_PE(w0, tax_params, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
          fin_frictions, grid_params, output_dir, guid='baseline')
 end = time.time()
-print('Solving the PE model took ', end-start, ' seconds.')
-solve_PE(w0, tax_params_CIT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
-         fin_frictions, grid_params, output_dir, guid='CIT')
-solve_PE(w0, tax_params_CFT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
-         fin_frictions, grid_params, output_dir, guid='CFT')
+# print('Solving the PE model took ', end-start, ' seconds.')
+# solve_PE(w0, tax_params_CIT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
+#          fin_frictions, grid_params, output_dir, guid='CIT')
+# solve_PE(w0, tax_params_CFT, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
+#          fin_frictions, grid_params, output_dir, guid='CFT')
+solve_PE(w0, tax_params_elas, hh_params_GM_AEJ_2010, firm_params_GM_AEJ_2010,
+         fin_frictions, grid_params, output_dir, guid='elas')

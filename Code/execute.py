@@ -20,7 +20,7 @@ import pathlib
 
 import VFI
 import SS
-import plots
+# import plots
 import grids
 import moments
 
@@ -34,13 +34,14 @@ def solve_GE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # upack dictionaries
+    tau_l = tax_params['tau_l']
     tau_i = tax_params['tau_i']
     tau_d = tax_params['tau_d']
     tau_g = tax_params['tau_g']
     tau_c = tax_params['tau_c']
     f_e = tax_params['f_e']
     f_b = tax_params['f_b']
-    tax_tuple = (tau_i, tau_d, tau_g, tau_c, f_e, f_b)
+    tax_tuple = (tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b)
 
     alpha_k = firm_params['alpha_k']
     alpha_l = firm_params['alpha_l']
@@ -170,13 +171,14 @@ def solve_PE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # upack dictionaries
+    tau_l = tax_params['tau_l']
     tau_i = tax_params['tau_i']
     tau_d = tax_params['tau_d']
     tau_g = tax_params['tau_g']
     tau_c = tax_params['tau_c']
     f_e = tax_params['f_e']
     f_b = tax_params['f_b']
-    tax_tuple = (tau_i, tau_d, tau_g, tau_c, f_e, f_b)
+    tax_tuple = (tau_l, tau_i, tau_d, tau_g, tau_c, f_e, f_b)
 
     alpha_k = firm_params['alpha_k']
     alpha_l = firm_params['alpha_l']
