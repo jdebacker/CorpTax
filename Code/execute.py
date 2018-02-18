@@ -47,6 +47,7 @@ def solve_GE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     alpha_l = firm_params['alpha_l']
     delta = firm_params['delta']
     psi = firm_params['psi']
+    fixed_cost = firm_params['fixed_cost']
     mu = firm_params['mu']
     rho = firm_params['rho']
     sigma_eps = firm_params['sigma_eps']
@@ -94,9 +95,9 @@ def solve_GE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     # initial guess at stationary distribution
     Gamma_initial = np.ones((sizez, sizek, sizeb)) * (1 / (sizek * sizez *
                                                            sizeb))
-    gr_args = (r, alpha_k, alpha_l, delta, psi, betafirm, kgrid, zgrid, bgrid,
-               Pi, eta0, eta1, eta2, theta, sizek, sizez, sizeb, h, tax_tuple,
-               VF_initial, Gamma_initial)
+    gr_args = (r, alpha_k, alpha_l, delta, psi, fixed_cost, betafirm,
+               kgrid, zgrid, bgrid, Pi, eta0, eta1, eta2, theta, sizek,
+               sizez, sizeb, h, tax_tuple, VF_initial, Gamma_initial)
     start_time = time.time()
     w = SS.golden_ratio_eqm(0.8, 1.6, gr_args, tolerance=1e-4)
     end_time = time.time()
@@ -110,8 +111,8 @@ def solve_GE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     '''
     op, e, l_d, y, eta, collateral_constraint =\
         VFI.get_firmobjects(r, w, zgrid, kgrid, bgrid, alpha_k, alpha_l,
-                            delta, psi, eta0, eta1, eta2, theta, sizez,
-                            sizek, sizeb, tax_tuple)
+                            delta, psi, fixed_cost, eta0, eta1, eta2,
+                            theta, sizez, sizek, sizeb, tax_tuple)
     VF, PF_k, PF_b, optK, optI, optB =\
         VFI.VFI(e, eta, collateral_constraint, betafirm, delta, kgrid,
                 bgrid, Pi, sizez, sizek, sizeb, tax_tuple, VF_initial)
@@ -127,9 +128,9 @@ def solve_GE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     z_params = (Pi, zgrid, sizez)
     b_params = (bgrid, sizeb)
     model_moments =\
-        moments.firm_moments(w, r, delta, psi, h, k_params, z_params,
-                             b_params, tax_tuple, output_vars,
-                             output_dir, print_moments=True)
+        moments.firm_moments(w, r, delta, psi, fixed_cost, h, k_params,
+                             z_params, b_params, tax_tuple, output_vars,
+                             output_dir, print_moments=False)
 
     if plot_results:
         '''
@@ -158,6 +159,16 @@ def solve_GE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     pkl_path = os.path.join(output_path, 'model_output.pkl')
     pickle.dump(model_out_dict, open(pkl_path, 'wb'))
 
+    moments_for_est = np.array([model_moments['cross_section']['agg_IK'],
+                                model_moments['cross_section']['agg_DE'],
+                                model_moments['cross_section']['agg_SI'],
+                                model_moments['cross_section']['sd_IK'],
+                                model_moments['cross_section']['ac_IK'],
+                                model_moments['cross_section']['sd_EK'],
+                                model_moments['cross_section']['ac_EK']])
+
+    return moments_for_est
+
 
 def solve_PE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
              output_dir, guid='baseline', plot_results=False):
@@ -184,6 +195,7 @@ def solve_PE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     alpha_l = firm_params['alpha_l']
     delta = firm_params['delta']
     psi = firm_params['psi']
+    fixed_cost = firm_params['fixed_cost']
     mu = firm_params['mu']
     rho = firm_params['rho']
     sigma_eps = firm_params['sigma_eps']
@@ -233,8 +245,8 @@ def solve_PE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
                                                            sizeb))
     op, e, l_d, y, eta, collateral_constraint =\
         VFI.get_firmobjects(r, w0, zgrid, kgrid, bgrid, alpha_k, alpha_l,
-                            delta, psi, eta0, eta1, eta2, theta, sizez,
-                            sizek, sizeb, tax_tuple)
+                            delta, psi, fixed_cost, eta0, eta1, eta2,
+                            theta, sizez, sizek, sizeb, tax_tuple)
     VF, PF_k, PF_b, optK, optI, optB =\
         VFI.VFI(e, eta, collateral_constraint, betafirm, delta, kgrid,
                 bgrid, Pi, sizez, sizek, sizeb, tax_tuple, VF_initial)
@@ -279,9 +291,9 @@ def solve_PE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     z_params = (Pi, zgrid, sizez)
     b_params = (bgrid, sizeb)
     model_moments =\
-        moments.firm_moments(w0, r, delta, psi, h, k_params, z_params,
-                             b_params, tax_tuple, output_vars,
-                             output_dir, print_moments=True)
+        moments.firm_moments(w0, r, delta, psi, fixed_cost, h, k_params,
+                             z_params, b_params, tax_tuple, output_vars,
+                             output_dir, print_moments=False)
 
     if plot_results:
         '''
@@ -309,3 +321,13 @@ def solve_PE(w0, tax_params, hh_params, firm_params, fin_frictions, grid_params,
     # Save pickle of model output
     pkl_path = os.path.join(output_path, 'model_output.pkl')
     pickle.dump(model_out_dict, open(pkl_path, 'wb'))
+
+    moments_for_est = np.array([model_moments['cross_section']['agg_IK'],
+                                model_moments['cross_section']['agg_DE'],
+                                model_moments['cross_section']['agg_SI'],
+                                model_moments['cross_section']['sd_IK'],
+                                model_moments['cross_section']['ac_IK'],
+                                model_moments['cross_section']['sd_EK'],
+                                model_moments['cross_section']['ac_EK']])
+
+    return moments_for_est
