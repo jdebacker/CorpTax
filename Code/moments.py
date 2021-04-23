@@ -27,10 +27,13 @@ def find_equity_div(e, eta, PF_k, PF_b, sizez, sizek, sizeb):
     for i in range(sizez):  # loop over z
         for j in range(sizek):  # loop over k
             for m in range(sizeb):  # loop over b
-                div[i, j, m] = max(0, e[i, j, PF_k[i, j, m], m, PF_b[i, j, m]])
-                equity[i, j, m] = max(0, -1 * e[i, j, PF_k[i, j, m], m, PF_b[i, j, m]])
+                div[i, j, m] =\
+                    max(0, e[i, j, PF_k[i, j, m], m, PF_b[i, j, m]])
+                equity[i, j, m] =\
+                    max(0, -1 * e[i, j, PF_k[i, j, m], m, PF_b[i, j, m]])
                 # can't finance investment larger than current one without using external funds
-                is_constrained[i, j, m] = e[i, j, min(sizek - 1, PF_k[i, j, m] + 1), m, PF_b[i, j, m]] < 0
+                is_constrained[i, j, m] =\
+                    e[i, j, min(sizek - 1, PF_k[i, j, m] + 1), m, PF_b[i, j, m]] < 0
                 # is issuing equity (making sure equity > 0 not just do to discerete grid)
                 is_using_equity[i, j, m] = (equity[i, j, m] > (-e[i, j, PF_k[i, j, m], m, PF_b[i, j, m]]
                                      + e[i, j, max(0, PF_k[i, j, m] - 1), m, PF_b[i, j, m]]))
@@ -39,8 +42,9 @@ def find_equity_div(e, eta, PF_k, PF_b, sizez, sizek, sizeb):
 
 
 @numba.jit
-def find_autocorr(op, optI, optB, PF_k, PF_b, VF, Gamma, kgrid, Pi, sizez, sizek, sizeb, mean_IK,
-                  mean_EK, mean_BV, sd_IK, sd_EK, sd_BV):
+def find_autocorr(op, optI, optB, equity, PF_k, PF_b, VF, Gamma, kgrid,
+                  Pi, sizez, sizek, sizeb, mean_IK, mean_EK, mean_BV,
+                  mean_S, sd_IK, sd_EK, sd_BV, sd_S):
     '''
     Compute autocovariances for endogenous variables
     '''
@@ -48,6 +52,7 @@ def find_autocorr(op, optI, optB, PF_k, PF_b, VF, Gamma, kgrid, Pi, sizez, sizek
     cov_EK_EK = 0
     cov_BV_BV = 0
     cov_EK_BV = 0
+    cov_S_S = 0
     for i in range(sizez):  # loop over z
         for j in range(sizek):  # loop over k
             for m in range(sizeb):  # loop over b
@@ -72,20 +77,33 @@ def find_autocorr(op, optI, optB, PF_k, PF_b, VF, Gamma, kgrid, Pi, sizez, sizek
                                               ((optB[ii, PF_k[i, j, m], PF_b[i, j, m]] /
                                                 (VF[ii, PF_k[i, j, m], PF_b[i, j, m]] + optB[i, j, m])) - mean_BV) *
                                               Gamma[i, j, m] * Pi[i, ii]))
-
-    ac_IK = cov_IK_IK / (sd_IK ** 2)
-    ac_EK = cov_EK_EK / (sd_EK ** 2)
-    if sd_BV != 0:
+                    cov_S_S = (cov_S_S + ((equity[i, j, m] - mean_S) *
+                                          (equity[ii, PF_k[i, j, m],
+                                                   PF_b[i, j, m]] - mean_S) *
+                                              Gamma[i, j, m] * Pi[i, ii]))
+    if sd_IK != 0.0:
+        ac_IK = cov_IK_IK / (sd_IK ** 2)
+    else:
+        ac_IK = 1e12
+    if sd_EK != 0.0:
+        ac_EK = cov_EK_EK / (sd_EK ** 2)
+    else:
+        ac_EK = 1e12
+    if sd_S != 0.0:
+        ac_S = cov_S_S / (sd_S ** 2)
+    else:
+        ac_S = 1e12
+    if sd_BV != 0 and sd_EK != 0:
         ac_BV = cov_BV_BV / (sd_BV ** 2)
         sc_EK_BV = cov_EK_BV / (sd_BV * sd_EK)  # serial corr of leverage and lagged profits
     else:
         ac_BV = 0
         sc_EK_BV = 0
 
-    return ac_IK, ac_EK, ac_BV, sc_EK_BV
+    return ac_IK, ac_EK, ac_BV, sc_EK_BV, ac_S
 
 
-def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, output_vars, output_dir,
+def firm_moments(w, r, delta, psi, fixed_cost, h, k_params, z_params, b_params, tax_params, output_vars, output_dir,
                  print_moments=False):
     '''
     ------------------------------------------------------------------------
@@ -114,6 +132,7 @@ def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, 
 
     # Aggregate New Equity/Investment
     mean_SI = ((equity / optI) * Gamma).sum() / Gamma.sum()
+    mean_S = (equity * Gamma).sum() / Gamma.sum()
     agg_SI = (equity * Gamma).sum() / (optI * Gamma).sum()
 
     # Aggregate leverage ratio
@@ -133,21 +152,35 @@ def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, 
     mean_BV = ((optB / (VF + optB)) * Gamma).sum() / Gamma.sum()
     sd_BV = np.sqrt(((((optB / (VF + optB)) - mean_BV) ** 2) * Gamma).sum())
 
+    # Volatility of rate of new equity issues
+    sd_S = np.sqrt((((equity - mean_S) ** 2) * Gamma).sum())
+
     # Autocorrelation of the Investment Rate, Earnings/Capital ratio,
     # leverage ratio, serial correlation between lagged profits and leverage
     # Autocorrelation of Earnings/Capital
-    ac_IK, ac_EK, ac_BV, sc_EK_BV =\
-        find_autocorr(op, optI, optB, PF_k, PF_b, VF, Gamma, kgrid, Pi,
-                      sizez, sizek, sizeb, mean_IK, mean_EK, mean_BV,
-                      sd_IK, sd_EK, sd_BV)
+    ac_IK, ac_EK, ac_BV, sc_EK_BV, ac_S =\
+        find_autocorr(op, optI, optB, equity, PF_k, PF_b, VF, Gamma, kgrid, Pi,
+                      sizez, sizek, sizeb, mean_IK, mean_EK, mean_BV, mean_S,
+                      sd_IK, sd_EK, sd_BV, sd_S)
 
     # compute covariances
-    cov_BV_EK = (((optB / (VF + optB)) - mean_BV) * ((op3 / k3grid) - mean_EK) * Gamma).sum()
-    cov_SI_EK = (((equity / optI) - mean_SI) * ((op3 / k3grid) - mean_EK) * Gamma).sum()
-    cov_BV_IK = (((optB / (VF + optB)) - mean_BV) * ((optI / k3grid) - mean_IK) * Gamma).sum()
-    cov_IK_SI = (((optI / k3grid) - mean_IK) * ((equity / optI) - mean_SI) * Gamma).sum()
-    cov_IK_EK = (((optI / k3grid) - mean_IK) * ((op3 / k3grid) - mean_EK) * Gamma).sum()
+    cov_BV_EK = (((optB / (VF + optB)) - mean_BV) *
+                 ((op3 / k3grid) - mean_EK) * Gamma).sum()
+    cov_SI_EK = (((equity / optI) - mean_SI) *
+                 ((op3 / k3grid) - mean_EK) * Gamma).sum()
+    cov_BV_IK = (((optB / (VF + optB)) - mean_BV) *
+                 ((optI / k3grid) - mean_IK) * Gamma).sum()
+    cov_IK_SI = (((optI / k3grid) - mean_IK) *
+                 ((equity / optI) - mean_SI) * Gamma).sum()
+    cov_IK_EK = (((optI / k3grid) - mean_IK) *
+                 ((op3 / k3grid) - mean_EK) * Gamma).sum()
+
+    # compute correlations
     corr_BV_EK = cov_BV_EK / (sd_BV * sd_EK)
+    corr_IK_EK = cov_IK_EK / (sd_IK * sd_EK)
+
+    # fraction with investment "spike" (I/K > 0.2)
+    inv_spike = (((optI / k3grid) > 0.2) * Gamma).sum() / Gamma.sum()
 
     # put these cross-sectional moments in a dictionary
     cross_section_dict = {'agg_IK': agg_IK, 'agg_DE': agg_DE, 'agg_SI': agg_SI,
@@ -155,9 +188,11 @@ def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, 
                           'mean_EK': mean_EK, 'sd_EK': sd_EK,
                           'mean_BV': mean_BV, 'sd_BV': sd_BV, 'ac_IK': ac_IK,
                           'ac_EK': ac_EK, 'ac_BV': ac_BV, 'sc_EK_BV': sc_EK_BV,
+                          'ac_SI': ac_S,
                           'cov_BV_EK': cov_BV_EK, 'cov_SI_EK': cov_SI_EK,
                           'cov_BV_IK': cov_BV_IK, 'cov_IK_SI': cov_IK_SI,
-                          'cov_IK_EK': cov_IK_EK, 'corr_BV_EK': corr_BV_EK}
+                          'cov_IK_EK': cov_IK_EK, 'corr_BV_EK': corr_BV_EK,
+                          'corr_IK_EK': corr_IK_EK, 'inv_spike': inv_spike}
 
     # Macro aggregates:
     agg_B = (optB * Gamma).sum()
@@ -168,7 +203,7 @@ def firm_moments(w, r, delta, psi, h, k_params, z_params, b_params, tax_params, 
     agg_D = (div * Gamma).sum()
     agg_S = (equity * Gamma).sum()
     agg_L_d = (Gamma.sum(axis=2) * l_d).sum()
-    agg_Psi = (Gamma * VFI.adj_costs(optK, k3grid, delta, psi)).sum()
+    agg_Psi = (Gamma * VFI.adj_costs(optK, k3grid, delta, psi, fixed_cost)).sum()
     agg_C = agg_Y - agg_I - agg_Psi
     agg_L_s = SS.get_L_s(w, agg_C, h, tau_l)
     mean_Q = (VF * Gamma).sum() / Gamma.sum()

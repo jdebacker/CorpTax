@@ -93,7 +93,7 @@ def create_Vmat(EV, e, eta, betafirm, Pi, sizez, sizek, sizeb, tax_params):
 
 
 @numba.jit
-def adj_costs(kprime, k, delta, psi):
+def adj_costs(kprime, k, delta, psi, fixed_cost):
     '''
     -------------------------------------------------------------------------
     Compute adjustment costs
@@ -103,14 +103,16 @@ def adj_costs(kprime, k, delta, psi):
           stock tomorrow (control)
     -------------------------------------------------------------------------
     '''
-    c = (psi / 2) * (((kprime - ((1 - delta) * k)) ** 2) / k)
+    c = ((psi / 2) * (((kprime - ((1 - delta) * k)) ** 2) / k) +
+         fixed_cost * k * (kprime != ((1 - delta) * k)))
 
     return c
 
 
 @numba.jit
-def get_firmobjects(r, w, zgrid, kgrid, bgrid, alpha_k, alpha_l, delta, psi, eta0, eta1,
-                    eta2, s, sizez, sizek, sizeb, tax_params):
+def get_firmobjects(r, w, zgrid, kgrid, bgrid, alpha_k, alpha_l, delta,
+                    psi, fixed_cost, eta0, eta1, eta2, s, sizez, sizek,
+                    sizeb, tax_params):
     '''
     -------------------------------------------------------------------------
     Generating possible cash flow levels
@@ -154,15 +156,12 @@ def get_firmobjects(r, w, zgrid, kgrid, bgrid, alpha_k, alpha_l, delta, psi, eta
                                                           kgrid[j])) *
                               (kgrid[jj] - ((1 - delta) * kgrid[j]))) -
                              (kgrid[jj] - ((1 - delta) * kgrid[j])) -
-                             adj_costs(kgrid[jj], kgrid[j], delta, psi) +
-                             bgrid[mm] - ((1 + r) * bgrid[m]) +
+                             adj_costs(kgrid[jj], kgrid[j], delta, psi,
+                                       fixed_cost) + bgrid[mm] -
+                                       ((1 + r) * bgrid[m]) +
                              (r * tau_c * bgrid[m]) -
                              (r * tau_c * (1 - f_b) * bgrid[m] *
                               (bgrid[m] > 0)))
-                        # collateral_constraint[i, j, jj, m, mm] =\
-                        #     (((1-tau_c) * op[0, jj] + tau_c * delta *
-                        #       kgrid[jj] + s * kgrid[jj]) <=
-                        #      (((1 + r) * bgrid[mm]) - (r * tau_c * bgrid[mm])))
                         collateral_constraint[i, j, jj, m, mm] =\
                             (((1 + r) * bgrid[mm] - (tau_c * r * bgrid[mm])
                               + (r * tau_c * (1 - f_b) * bgrid[mm] *
