@@ -11,5 +11,5 @@ jobs:
       with:
         target_repo_url:
           git@github.com:PSLmodels/CorpTax.git
-        ssh_private_key:                                # <-- use 'secrets' to pass credential information.
-          ${{ secrets.GITHUB_SSH_PRIVATE_KEY }}
+        # ssh_private_key:                                # <-- use 'secrets' to pass credential information.
+        #   ${{ secrets.GITHUB_SSH_PRIVATE_KEY }}
