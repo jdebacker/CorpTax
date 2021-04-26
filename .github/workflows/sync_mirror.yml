@@ -11,8 +11,8 @@ jobs:
       with:
         target_repo_url:
           https://github.com/PSLmodels/CorpTax.git
-        ssh_private_key:                                # <-- use 'secrets' to pass credential information.
-          ${{ secrets.GITHUB_SSH_PRIVATE_KEY }}
+        # ssh_private_key:                                # <-- use 'secrets' to pass credential information.
+        #   ${{ secrets.GITHUB_SSH_PRIVATE_KEY }}
 
   to_codecommit:                                        # <-- different jobs are executed in parallel.
     runs-on: ubuntu-18.04
